@@ -1,0 +1,1 @@
+pgrep ftcollector+ | xargs kill
