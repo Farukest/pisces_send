@@ -67,7 +67,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #define ARRAY_SIZE(a)   (sizeof(a) / sizeof((a)[0]))
 #define STRINGIFY(x)    #x
 #define STR(x)          STRINGIFY(x)
-
+char code_to_char(uint8_t x);
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
@@ -75,7 +75,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #define VERSION_STRING "undefined"
 #endif
 
-#define JSON_CONF_DEFAULT   "/home/ft/hs_ft_pf_conf.json"
+#define JSON_CONF_DEFAULT   "global_conf.json"
 
 #define DEFAULT_SERVER      127.0.0.1   /* hostname also supported */
 #define DEFAULT_PORT_UP     1780
@@ -140,6 +140,7 @@ static uint64_t lgwm = 0; /* Lora gateway MAC address */
 static char serv_addr[64] = STR(DEFAULT_SERVER); /* address of the server (host name or IPv4/IPv6) */
 static char collector_addr[64] = STR(DEFAULT_SERVER); /* address of the server (host name or IPv4/IPv6) */
 static char serv_port_up[8] = STR(DEFAULT_PORT_UP); /* server port for upstream traffic */
+static char serv_port_up_middle[8] = STR(DEFAULT_PORT_UP); /* server port for upstream traffic */
 static char serv_port_down[8] = STR(DEFAULT_PORT_DW); /* server port for downstream traffic */
 static int keepalive_time = DEFAULT_KEEPALIVE; /* send a PULL_DATA request every X seconds, negative = disabled */
 
@@ -152,6 +153,7 @@ static uint32_t net_mac_l; /* Least Significant Nibble, network order */
 
 /* network sockets */
 static int sock_up; /* socket for upstream traffic */
+static int sock_up_middle; /* socket for upstream traffic */
 static int sock_down; /* socket for downstream traffic */
 
 /* network protocol variables */
@@ -813,7 +815,11 @@ static int parse_gateway_configuration(const char * conf_file) {
         snprintf(serv_port_up, sizeof serv_port_up, "%u", (uint16_t)json_value_get_number(val));
         MSG("INFO: upstream port is configured to \"%s\"\n", serv_port_up);
     }
-
+    val = json_object_get_value(conf_obj, "serv_port_up_middle");
+    if (val != NULL) {
+        snprintf(serv_port_up_middle, sizeof serv_port_up_middle, "%u", (uint16_t)json_value_get_number(val));
+        MSG("INFO: upstream port is configured to \"%s\"\n", serv_port_up_middle);
+    }
     val = json_object_get_value(conf_obj, "serv_port_down");
     if (val != NULL) {
         snprintf(serv_port_down, sizeof serv_port_down, "%u", (uint16_t)json_value_get_number(val));
@@ -1344,9 +1350,9 @@ int main(int argc, char ** argv)
     hints.ai_socktype = SOCK_DGRAM;
 
     /* look for server address w/ upstream port */
-    i = getaddrinfo(collector_addr, serv_port_up, &hints, &result);
+    i = getaddrinfo(serv_addr, serv_port_up, &hints, &result);
     if (i != 0) {
-        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", collector_addr, serv_port_up, gai_strerror(i));
+        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", serv_addr, serv_port_up, gai_strerror(i));
         exit(EXIT_FAILURE);
     }
 
@@ -1357,7 +1363,7 @@ int main(int argc, char ** argv)
         else break; /* success, get out of loop */
     }
     if (q == NULL) {
-        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", collector_addr, serv_port_up);
+        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", serv_addr, serv_port_up);
         i = 1;
         for (q=result; q!=NULL; q=q->ai_next) {
             getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
@@ -1369,6 +1375,41 @@ int main(int argc, char ** argv)
 
     /* connect so we can send/receive packet with the server only */
     i = connect(sock_up, q->ai_addr, q->ai_addrlen);
+    if (i != 0) {
+        MSG("ERROR: [up] connect returned %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    freeaddrinfo(result);
+
+
+
+
+    /* look for server address w/ upstream port */
+    i = getaddrinfo(collector_addr, serv_port_up_middle, &hints, &result);
+    if (i != 0) {
+        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", collector_addr, serv_port_up_middle, gai_strerror(i));
+        exit(EXIT_FAILURE);
+    }
+
+    /* try to open socket for upstream traffic */
+    for (q=result; q!=NULL; q=q->ai_next) {
+        sock_up_middle = socket(q->ai_family, q->ai_socktype,q->ai_protocol);
+        if (sock_up_middle == -1) continue; /* try next field */
+        else break; /* success, get out of loop */
+    }
+    if (q == NULL) {
+        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", collector_addr, serv_port_up_middle);
+        i = 1;
+        for (q=result; q!=NULL; q=q->ai_next) {
+            getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
+            MSG("INFO: [up] result %i host:%s service:%s\n", i, host_name, port_name);
+            ++i;
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    /* connect so we can send/receive packet with the server only */
+    i = connect(sock_up_middle, q->ai_addr, q->ai_addrlen);
     if (i != 0) {
         MSG("ERROR: [up] connect returned %s\n", strerror(errno));
         exit(EXIT_FAILURE);
@@ -1412,12 +1453,9 @@ int main(int argc, char ** argv)
     }
     freeaddrinfo(result);
 
-
-
-
     /* Board reset */
-    if (system("/./home/ft/chip_pin_ft.sh start") != 0) {
-        printf("ERROR: failed to reset SX1302, check your chip_pin_ft.sh script\n");
+    if (system("./reset_lgw.sh start") != 0) {
+        printf("ERROR: failed to reset SX1302, check your reset_lgw.sh script\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1585,44 +1623,44 @@ int main(int argc, char ** argv)
         }
 
         /* display a report */
-        printf("\n##### %s #####\n", stat_timestamp);
-        printf("### [UPSTREAM] ###\n");
-        printf("# RF packets received by concentrator: %u\n", cp_nb_rx_rcv);
-        printf("# CRC_OK: %.2f%%, CRC_FAIL: %.2f%%, NO_CRC: %.2f%%\n", 100.0 * rx_ok_ratio, 100.0 * rx_bad_ratio, 100.0 * rx_nocrc_ratio);
-        printf("# RF packets forwarded: %u (%u bytes)\n", cp_up_pkt_fwd, cp_up_payload_byte);
-        printf("# PUSH_DATA datagrams sent: %u (%u bytes)\n", cp_up_dgram_sent, cp_up_network_byte);
-        printf("# PUSH_DATA acknowledged: %.2f%%\n", 100.0 * up_ack_ratio);
-        printf("### [DOWNSTREAM] ###\n");
-        printf("# PULL_DATA sent: %u (%.2f%% acknowledged)\n", cp_dw_pull_sent, 100.0 * dw_ack_ratio);
-        printf("# PULL_RESP(onse) datagrams received: %u (%u bytes)\n", cp_dw_dgram_rcv, cp_dw_network_byte);
-        printf("# RF packets sent to concentrator: %u (%u bytes)\n", (cp_nb_tx_ok+cp_nb_tx_fail), cp_dw_payload_byte);
-        printf("# TX errors: %u\n", cp_nb_tx_fail);
+//        printf("\n##### %s #####\n", stat_timestamp);
+//        printf("### [UPSTREAM] ###\n");
+//        printf("# RF packets received by concentrator: %u\n", cp_nb_rx_rcv);
+//        printf("# CRC_OK: %.2f%%, CRC_FAIL: %.2f%%, NO_CRC: %.2f%%\n", 100.0 * rx_ok_ratio, 100.0 * rx_bad_ratio, 100.0 * rx_nocrc_ratio);
+//        printf("# RF packets forwarded: %u (%u bytes)\n", cp_up_pkt_fwd, cp_up_payload_byte);
+//        printf("# PUSH_DATA datagrams sent: %u (%u bytes)\n", cp_up_dgram_sent, cp_up_network_byte);
+//        printf("# PUSH_DATA acknowledged: %.2f%%\n", 100.0 * up_ack_ratio);
+//        printf("### [DOWNSTREAM] ###\n");
+//        printf("# PULL_DATA sent: %u (%.2f%% acknowledged)\n", cp_dw_pull_sent, 100.0 * dw_ack_ratio);
+//        printf("# PULL_RESP(onse) datagrams received: %u (%u bytes)\n", cp_dw_dgram_rcv, cp_dw_network_byte);
+//        printf("# RF packets sent to concentrator: %u (%u bytes)\n", (cp_nb_tx_ok+cp_nb_tx_fail), cp_dw_payload_byte);
+//        printf("# TX errors: %u\n", cp_nb_tx_fail);
         if (cp_nb_tx_requested != 0 ) {
-            printf("# TX rejected (collision packet): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_collision_packet / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_collision_packet);
-            printf("# TX rejected (collision beacon): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_collision_beacon / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_collision_beacon);
-            printf("# TX rejected (too late): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_too_late / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_too_late);
-            printf("# TX rejected (too early): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_too_early / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_too_early);
+//            printf("# TX rejected (collision packet): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_collision_packet / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_collision_packet);
+//            printf("# TX rejected (collision beacon): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_collision_beacon / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_collision_beacon);
+//            printf("# TX rejected (too late): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_too_late / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_too_late);
+//            printf("# TX rejected (too early): %.2f%% (req:%u, rej:%u)\n", 100.0 * cp_nb_tx_rejected_too_early / cp_nb_tx_requested, cp_nb_tx_requested, cp_nb_tx_rejected_too_early);
         }
-        printf("### SX1302 Status ###\n");
+//        printf("### SX1302 Status ###\n");
         pthread_mutex_lock(&mx_concent);
         i  = lgw_get_instcnt(&inst_tstamp);
         i |= lgw_get_trigcnt(&trig_tstamp);
         pthread_mutex_unlock(&mx_concent);
         if (i != LGW_HAL_SUCCESS) {
-            printf("# SX1302 counter unknown\n");
+//            printf("# SX1302 counter unknown\n");
         } else {
-            printf("# SX1302 counter (INST): %u\n", inst_tstamp);
-            printf("# SX1302 counter (PPS):  %u\n", trig_tstamp);
+//            printf("# SX1302 counter (INST): %u\n", inst_tstamp);
+//            printf("# SX1302 counter (PPS):  %u\n", trig_tstamp);
         }
-        printf("# BEACON queued: %u\n", cp_nb_beacon_queued);
-        printf("# BEACON sent so far: %u\n", cp_nb_beacon_sent);
-        printf("# BEACON rejected: %u\n", cp_nb_beacon_rejected);
-        printf("### [JIT] ###\n");
+//        printf("# BEACON queued: %u\n", cp_nb_beacon_queued);
+//        printf("# BEACON sent so far: %u\n", cp_nb_beacon_sent);
+//        printf("# BEACON rejected: %u\n", cp_nb_beacon_rejected);
+//        printf("### [JIT] ###\n");
         /* get timestamp captured on PPM pulse  */
         jit_print_queue (&jit_queue[0], false, DEBUG_LOG);
-        printf("#--------\n");
+//        printf("#--------\n");
         jit_print_queue (&jit_queue[1], false, DEBUG_LOG);
-        printf("### [GPS] ###\n");
+//        printf("### [GPS] ###\n");
         if (gps_dev) {
             /* no need for mutex, display is not critical */
             if (gps_ref_valid == true) {
@@ -1638,15 +1676,15 @@ int main(int argc, char ** argv)
         } else if (gps_fake_enable == true) {
             printf("# GPS *FAKE* coordinates: latitude %.6f, longitude %.6f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
         } else {
-            printf("# GPS sync is disabled\n");
+//            printf("# GPS sync is disabled\n");
         }
         i = lgw_get_temperature(&temperature);
         if (i != LGW_HAL_SUCCESS) {
-            printf("### Concentrator temperature unknown ###\n");
+//            printf("### Concentrator temperature unknown ###\n");
         } else {
-            printf("### Concentrator temperature: %.0f C ###\n", temperature);
+//            printf("### Concentrator temperature: %.0f C ###\n", temperature);
         }
-        printf("##### END #####\n");
+//        printf("##### END #####\n");
 
         /* generate a JSON report (will be sent to server by upstream thread) */
         pthread_mutex_lock(&mx_stat_rep);
@@ -1690,8 +1728,8 @@ int main(int argc, char ** argv)
     }
 
     /* Board reset */
-    if (system("/./home/ft/chip_pin_ft.sh stop") != 0) {
-        printf("ERROR: failed to reset SX1302, check your chip_pin_ft.sh script\n");
+    if (system("./reset_lgw.sh stop") != 0) {
+        printf("ERROR: failed to reset SX1302, check your reset_lgw.sh script\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1760,7 +1798,19 @@ void thread_up(void) {
 
         /* fetch packets */
         pthread_mutex_lock(&mx_concent);
+
+//        if( rxpkt->size == 52 ){
+//            uint32_t counteeee = rxpkt->count_us;
+//            uint16_t counteeeee = rxpkt->crc;
+//        }
+        if( rxpkt->payload[0] != 0 ){
+            uint32_t counteeee = rxpkt->rssis;
+            uint16_t counteeeee = rxpkt->snr;
+
+        }
+//        rxpkt->size = 52;
         nb_pkt = lgw_receive(NB_PKT_MAX, rxpkt);
+
         pthread_mutex_unlock(&mx_concent);
         if (nb_pkt == LGW_HAL_ERROR) {
             MSG("ERROR: [up] failed packet fetch, exiting\n");
@@ -1857,7 +1907,7 @@ void thread_up(void) {
             meas_up_pkt_fwd += 1;
             meas_up_payload_byte += p->size;
             pthread_mutex_unlock(&mx_meas_up);
-            printf( "\nINFO: Received pkt from mote: %08X (fcnt=%u)\n", mote_addr, mote_fcnt );
+            printf( "\n\nINFO: Received pkt from mote: %08X (fcnt=%u)", mote_addr, mote_fcnt );
 
             /* Start of packet, add inter-packet separator if necessary */
             if (pkt_in_dgram == 0) {
@@ -2039,7 +2089,7 @@ void thread_up(void) {
                         buff_index += 11;
                         exit(EXIT_FAILURE);
                 }
-
+//                p->rssis = -111;
                 /* Signal RSSI, payload size */
                 j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"rssis\":%.0f", roundf(p->rssis));
                 if (j > 0) {
@@ -2096,6 +2146,7 @@ void thread_up(void) {
             memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
             buff_index += 9;
             j = bin_to_b64(p->payload, p->size, (char *)(buff_up + buff_index), 341); /* 255 bytes = 340 chars in b64 + null char */
+
             if (j>=0) {
                 buff_index += j;
             } else {
@@ -2192,18 +2243,98 @@ void thread_up(void) {
 
         printf("\nJSON up: %s\n", (char *)(buff_up + 12)); /* DEBUG: display JSON payload */
 
+        if(false){
+//            memset(&rxpkt, 0, sizeof rxpkt);
+//            JSON_Value *root_vale = json_parse_string((const char *)(buff_up + 12)); /* JSON offset */
+//
+//
+//            if (rxpk_obj == NULL) {
+//                MSG("WARNING: [down] no \"rxpk\" object in JSON, TX aborted\n");
+//                json_value_free(root_vale);
+//                continue;
+//            }
+            const char *strr = "QDDaAAGWjrsfAEkAAGsQHHI6tEEHSLpnaYkMF85SLyhtHd86aa8cSQwZNhD+RFHYpc+wyw==";
+//            i = b64_to_bin(strr, strlen(strr), p->payload, sizeof p->payload);
+
+            int k;
+            int result_len; /* size of the result */
+            int full_blocks; /* number of 3 unsigned chars / 4 characters blocks */
+            int last_bytes; /* number of unsigned chars <3 in the last block */
+            int last_chars; /* number of characters <4 in the last block */
+            uint32_t b;
+            const char * in = strr;
+            uint8_t * out = p->payload;
+            int size = strlen(strr);
+            int max_len = sizeof p->payload;
+
+
+            /* calculate the number of base64 'blocks' */
+            full_blocks = size / 3;
+            last_bytes = size % 3;
+            switch (last_bytes) {
+                case 0: /* no byte left to encode */
+                    last_chars = 0;
+                    break;
+                case 1: /* 1 byte left to encode -> +2 chars */
+                    last_chars = 2;
+                    break;
+                case 2: /* 2 bytes left to encode -> +3 chars */
+                    last_chars = 3;
+                    break;
+            }
+
+            /* check if output buffer is big enough */
+            result_len = (4*full_blocks) + last_chars;
+            if (max_len < (result_len + 1)) { /* 1 char added for string terminator */
+            }
+
+            /* process all the full blocks */
+            for (k=0; k < full_blocks; ++k) {
+                b  = (0xFF & in[3*k]    ) << 16;
+                b |= (0xFF & in[3*k + 1]) << 8;
+                b |=  0xFF & in[3*k + 2];
+                out[4*k + 0] = code_to_char((b >> 18) & 0x3F);
+                out[4*k + 1] = code_to_char((b >> 12) & 0x3F);
+                out[4*k + 2] = code_to_char((b >> 6 ) & 0x3F);
+                out[4*k + 3] = code_to_char( b        & 0x3F);
+            }
+
+            /* process the last 'partial' block and terminate string */
+            k = full_blocks;
+            if (last_chars == 0) {
+                out[4*k] =  0; /* null character to terminate string */
+            } else if (last_chars == 2) {
+                b  = (0xFF & in[3*k]    ) << 16;
+                out[4*k + 0] = code_to_char((b >> 18) & 0x3F);
+                out[4*k + 1] = code_to_char((b >> 12) & 0x3F);
+                out[4*k + 2] =  0; /* null character to terminate string */
+            } else if (last_chars == 3) {
+                b  = (0xFF & in[3*k]    ) << 16;
+                b |= (0xFF & in[3*k + 1]) << 8;
+                out[4*k + 0] = code_to_char((b >> 18) & 0x3F);
+                out[4*k + 1] = code_to_char((b >> 12) & 0x3F);
+                out[4*k + 2] = code_to_char((b >> 6 ) & 0x3F);
+                out[4*k + 3] = 0; /* null character to terminate string */
+            }
+
+            uint8_t * outtt = out;
+            uint8_t * outttee = out;
+//            json_value_free(root_vale);
+        }
+
+
         if( rxpkt->size == 52 && rxpkt->payload[0] > 0 ){
             if(((int)strlen((char *)(buff_up + 12))) > 113){
                 FILE * log_file = NULL;
                 log_file = fopen("/home/ft/logs/signals.log", "a");
                 setbuf(log_file, NULL);
-                fprintf(log_file,"\nJSON uppe 2: %s\n", (char *)(buff_up + 12)); // DEBUG
+                fprintf(log_file,"\nJSON UP-1: %s\n", (char *)(buff_up + 12)); // DEBUG
             }
         }
 
-
         /* send datagram to server */
         send(sock_up, (void *)buff_up, buff_index, 0);
+        send(sock_up_middle, (void *)buff_up, buff_index, 0);
         clock_gettime(CLOCK_MONOTONIC, &send_time);
         pthread_mutex_lock(&mx_meas_up);
         meas_up_dgram_sent += 1;
@@ -2226,7 +2357,7 @@ void thread_up(void) {
                 //MSG("WARNING: [up] ignored out-of sync ACK packet\n");
                 continue;
             } else {
-                MSG("INFO: [up] PUSH_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
+//                MSG("INFO: [up] PUSH_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
                 meas_up_ack_rcv += 1;
                 break;
             }
@@ -2614,10 +2745,10 @@ void thread_down(void) {
                         pthread_mutex_lock(&mx_meas_dw);
                         meas_dw_ack_rcv += 1;
                         pthread_mutex_unlock(&mx_meas_dw);
-                        MSG("INFO: [down] PULL_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
+//                        MSG("INFO: [down] PULL_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
                     }
                 } else { /* out-of-sync token */
-                    MSG("INFO: [down] received out-of-sync ACK\n");
+//                    MSG("INFO: [down] received out-of-sync ACK\n");
                 }
                 continue;
             }

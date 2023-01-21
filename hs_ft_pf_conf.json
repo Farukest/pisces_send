@@ -20,22 +20,22 @@
             "tx_freq_min": 863000000,
             "tx_freq_max": 870000000,
             "tx_gain_lut":[
-                {"rf_power": 10, "pa_gain": 1, "pwr_idx": 251},
-                {"rf_power": 11, "pa_gain": 1, "pwr_idx": 252},
-                {"rf_power": 12, "pa_gain": 1, "pwr_idx": 253},
-                {"rf_power": 13, "pa_gain": 1, "pwr_idx": 254},
-                {"rf_power": 14, "pa_gain": 1, "pwr_idx": 255},
-                {"rf_power": 15, "pa_gain": 1, "pwr_idx": 0},
-                {"rf_power": 16, "pa_gain": 1, "pwr_idx": 1},
-                {"rf_power": 17, "pa_gain": 1, "pwr_idx": 2},
-                {"rf_power": 18, "pa_gain": 1, "pwr_idx": 3},
-                {"rf_power": 19, "pa_gain": 1, "pwr_idx": 4},
-                {"rf_power": 20, "pa_gain": 1, "pwr_idx": 5},
-                {"rf_power": 21, "pa_gain": 1, "pwr_idx": 6},
-                {"rf_power": 23, "pa_gain": 1, "pwr_idx": 8},
-                {"rf_power": 25, "pa_gain": 1, "pwr_idx": 10},
-                {"rf_power": 26, "pa_gain": 1, "pwr_idx": 13},
-                {"rf_power": 27, "pa_gain": 1, "pwr_idx": 16}
+		{"rf_power": 10, "pa_gain": 1, "pwr_idx": 251},
+		{"rf_power": 11, "pa_gain": 1, "pwr_idx": 252},
+		{"rf_power": 12, "pa_gain": 1, "pwr_idx": 253},
+		{"rf_power": 13, "pa_gain": 1, "pwr_idx": 254},
+		{"rf_power": 14, "pa_gain": 1, "pwr_idx": 255},
+		{"rf_power": 15, "pa_gain": 1, "pwr_idx": 0},
+		{"rf_power": 16, "pa_gain": 1, "pwr_idx": 1},
+		{"rf_power": 17, "pa_gain": 1, "pwr_idx": 2},
+		{"rf_power": 18, "pa_gain": 1, "pwr_idx": 3},
+		{"rf_power": 19, "pa_gain": 1, "pwr_idx": 4},
+		{"rf_power": 20, "pa_gain": 1, "pwr_idx": 5},
+		{"rf_power": 21, "pa_gain": 1, "pwr_idx": 6},
+		{"rf_power": 23, "pa_gain": 1, "pwr_idx": 8},
+		{"rf_power": 25, "pa_gain": 1, "pwr_idx": 10},
+		{"rf_power": 26, "pa_gain": 1, "pwr_idx": 13},
+		{"rf_power": 27, "pa_gain": 1, "pwr_idx": 16}
             ]
         },
         "radio_1": {
@@ -108,6 +108,7 @@
         "collector_address": "replace_collector_address",
         "server_address": "localhost",
         "serv_port_up": 1680,
+		"serv_port_up_middle": 1680,
         "serv_port_down": 1680,
         /* adjust the following parameters for your network */
         "keepalive_interval": 10,
@@ -117,7 +118,7 @@
         "forward_crc_valid": true,
         "forward_crc_error": false,
         "forward_crc_disabled": false,
-        /* Beaconing parameters */
+		/* Beaconing parameters */
         "beacon_period": 0,
         "beacon_freq_hz": 869525000,
         "beacon_datarate": 9,
