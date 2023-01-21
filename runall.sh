@@ -1,5 +1,5 @@
 i=0
-while [ $i -ne 3 ]
+while [ $i -ne 4 ]
 do
 		i=$(($i+1))
 		count=$(pgrep -c lora_pkt_fwd$i)
