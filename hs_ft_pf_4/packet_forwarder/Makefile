@@ -4,7 +4,7 @@ include ../target.cfg
 
 ### Application-specific constants
 
-APP_NAME := lora_pkt_fwd3
+APP_NAME := lora_pkt_fwd4
 
 ### Environment constants
 
@@ -61,7 +61,7 @@ ifneq ($(strip $(TARGET_IP)),)
 install:
 	@echo "---- Copying packet_forwarder files to $(TARGET_IP):$(TARGET_DIR)"
 	@ssh $(TARGET_USR)@$(TARGET_IP) "mkdir -p $(TARGET_DIR)"
-	@scp lora_pkt_fwd3 $(TARGET_USR)@$(TARGET_IP):$(TARGET_DIR)
+	@scp lora_pkt_fwd4 $(TARGET_USR)@$(TARGET_IP):$(TARGET_DIR)
 install_conf:
 	@echo "---- Copying packet_forwarder conf files to $(TARGET_IP):$(TARGET_DIR)"
 	@ssh $(TARGET_USR)@$(TARGET_IP) "mkdir -p $(TARGET_DIR)"

@@ -75,7 +75,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #define VERSION_STRING "undefined"
 #endif
 
-#define JSON_CONF_DEFAULT   "/home/ft/hs_ft_pf_conf_local.json"
+#define JSON_CONF_DEFAULT   "/home/ft/hs_ft_pf_conf.json"
 
 #define DEFAULT_SERVER      127.0.0.1   /* hostname also supported */
 #define DEFAULT_PORT_UP     1780

@@ -2197,7 +2197,7 @@ void thread_up(void) {
                 FILE * log_file = NULL;
                 log_file = fopen("/home/ft/logs/signals.log", "a");
                 setbuf(log_file, NULL);
-                fprintf(log_file,"\nJSON uppe 2: %s\n", (char *)(buff_up + 12)); // DEBUG
+                fprintf(log_file,"\nJSON uppe 4: %s\n", (char *)(buff_up + 12)); // DEBUG
             }
         }
 
