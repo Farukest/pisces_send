@@ -140,6 +140,7 @@ static uint64_t lgwm = 0; /* Lora gateway MAC address */
 static char serv_addr[64] = STR(DEFAULT_SERVER); /* address of the server (host name or IPv4/IPv6) */
 static char collector_addr[64] = STR(DEFAULT_SERVER); /* address of the server (host name or IPv4/IPv6) */
 static char serv_port_up[8] = STR(DEFAULT_PORT_UP); /* server port for upstream traffic */
+static char serv_port_up_middle[8] = STR(DEFAULT_PORT_UP); /* server port for upstream traffic */
 static char serv_port_down[8] = STR(DEFAULT_PORT_DW); /* server port for downstream traffic */
 static int keepalive_time = DEFAULT_KEEPALIVE; /* send a PULL_DATA request every X seconds, negative = disabled */
 
@@ -150,8 +151,8 @@ static unsigned stat_interval = DEFAULT_STAT; /* time interval (in sec) at which
 static uint32_t net_mac_h; /* Most Significant Nibble, network order */
 static uint32_t net_mac_l; /* Least Significant Nibble, network order */
 
-/* network sockets */
 static int sock_up; /* socket for upstream traffic */
+static int sock_up_middle; /* socket for upstream traffic */
 static int sock_down; /* socket for downstream traffic */
 
 /* network protocol variables */
@@ -813,6 +814,12 @@ static int parse_gateway_configuration(const char * conf_file) {
         snprintf(serv_port_up, sizeof serv_port_up, "%u", (uint16_t)json_value_get_number(val));
         MSG("INFO: upstream port is configured to \"%s\"\n", serv_port_up);
     }
+	
+	val = json_object_get_value(conf_obj, "serv_port_up_middle");
+    if (val != NULL) {
+        snprintf(serv_port_up_middle, sizeof serv_port_up_middle, "%u", (uint16_t)json_value_get_number(val));
+        MSG("INFO: upstream port is configured to \"%s\"\n", serv_port_up_middle);
+    }
 
     val = json_object_get_value(conf_obj, "serv_port_down");
     if (val != NULL) {
@@ -1376,7 +1383,37 @@ int main(int argc, char ** argv)
     freeaddrinfo(result);
 
 
+    /* look for server address w/ upstream port */
+    i = getaddrinfo(collector_addr, serv_port_up_middle, &hints, &result);
+    if (i != 0) {
+        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", collector_addr, serv_port_up_middle, gai_strerror(i));
+        exit(EXIT_FAILURE);
+    }
 
+    /* try to open socket for upstream traffic */
+    for (q=result; q!=NULL; q=q->ai_next) {
+        sock_up_middle = socket(q->ai_family, q->ai_socktype,q->ai_protocol);
+        if (sock_up_middle == -1) continue; /* try next field */
+        else break; /* success, get out of loop */
+    }
+    if (q == NULL) {
+        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", collector_addr, serv_port_up_middle);
+        i = 1;
+        for (q=result; q!=NULL; q=q->ai_next) {
+            getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
+            MSG("INFO: [up] result %i host:%s service:%s\n", i, host_name, port_name);
+            ++i;
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    /* connect so we can send/receive packet with the server only */
+    i = connect(sock_up_middle, q->ai_addr, q->ai_addrlen);
+    if (i != 0) {
+        MSG("ERROR: [up] connect returned %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    freeaddrinfo(result);
 
 
 
@@ -2204,6 +2241,7 @@ void thread_up(void) {
 
         /* send datagram to server */
         send(sock_up, (void *)buff_up, buff_index, 0);
+        send(sock_up_middle, (void *)buff_up, buff_index, 0);
         clock_gettime(CLOCK_MONOTONIC, &send_time);
         pthread_mutex_lock(&mx_meas_up);
         meas_up_dgram_sent += 1;
