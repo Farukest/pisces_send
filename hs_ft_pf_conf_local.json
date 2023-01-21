@@ -13,14 +13,14 @@
         "radio_0": {
             "enable": true,
             "type": "SX1250",
-            "freq": 486600000,
-            "rssi_offset": -207,
+            "freq": 867500000,
+            "rssi_offset": -215.4,
             "rssi_tcomp": {"coeff_a": 0, "coeff_b": 0, "coeff_c": 20.41, "coeff_d": 2162.56, "coeff_e": 0},
             "tx_enable": true,
-            "tx_freq_min" : 486290000,
-            "tx_freq_max" : 510000000,
+            "tx_freq_min": 863000000,
+            "tx_freq_max": 870000000,
             "tx_gain_lut":[
-		{"rf_power": 10, "pa_gain": 1, "pwr_idx": 251},
+                {"rf_power": 10, "pa_gain": 1, "pwr_idx": 251},
                 {"rf_power": 11, "pa_gain": 1, "pwr_idx": 252},
                 {"rf_power": 12, "pa_gain": 1, "pwr_idx": 253},
                 {"rf_power": 13, "pa_gain": 1, "pwr_idx": 254},
@@ -41,73 +41,71 @@
         "radio_1": {
             "enable": true,
             "type": "SX1250",
-            "freq": 487400000,
-            "rssi_offset": -207,
+            "freq": 868500000,
+            "rssi_offset": -215.4,
             "rssi_tcomp": {"coeff_a": 0, "coeff_b": 0, "coeff_c": 20.41, "coeff_d": 2162.56, "coeff_e": 0},
             "tx_enable": false
         },
-        "chan_multiSF_0" : {
-            "enable" : true,
-            "if" : -300000,
-            "radio" : 0
+        "chan_multiSF_0": {
+            "enable": true,
+            "radio": 1,
+            "if": -400000
         },
-        "chan_multiSF_1" : {
-            "enable" : true,
-            "if" : -100000,
-            "radio" : 0
+        "chan_multiSF_1": {
+            "enable": true,
+            "radio": 1,
+            "if": -200000
         },
-        "chan_multiSF_2" : {
-            "radio" : 0,
-            "if" : 100000,
-            "enable" : true
+        "chan_multiSF_2": {
+            "enable": true,
+            "radio": 1,
+            "if": 0
         },
-        "chan_multiSF_3" : {
-            "enable" : true,
-            "if" : 300000,
-            "radio" : 0
+        "chan_multiSF_3": {
+            "enable": true,
+            "radio": 0,
+            "if": -400000
         },
-        "chan_multiSF_4" : {
-            "if" : -300000,
-            "radio" : 1,
-            "enable" : true
+        "chan_multiSF_4": {
+            "enable": true,
+            "radio": 0,
+            "if": -200000
         },
-        "chan_multiSF_5" : {
-            "enable" : true,
-            "radio" : 1,
-            "if" : -100000
+        "chan_multiSF_5": {
+            "enable": true,
+            "radio": 0,
+            "if": 0
         },
-        "chan_multiSF_6" : {
-            "enable" : true,
-            "if" : 100000,
-            "radio" : 1
+        "chan_multiSF_6": {
+            "enable": true,
+            "radio": 0,
+            "if": 200000
         },
-        "chan_multiSF_7" : {
-            "if" : 300000,
-            "radio" : 1,
-            "enable" : true
+        "chan_multiSF_7": {
+            "enable": true,
+            "radio": 0,
+            "if": 400000
         },
-        "chan_Lora_std" : {
-            "bandwidth" : 250000,
-            "implicit_coderate" : 1,
-            "implicit_crc_en" : false,
-            "implicit_hdr" : false,
-            "enable" : true,
-            "radio" : 1,
-            "if" : -200000,
-            "implicit_payload_length" : 17,
-            "spread_factor" : 7
+        "chan_Lora_std": {
+            "enable": true,
+            "radio": 1,
+            "if": -200000,
+            "bandwidth": 250000,
+            "spread_factor": 7
         },
-        "chan_FSK" : {
-            "if" : 300000,
-            "radio" : 1,
-            "enable" : false,
-            "datarate" : 50000,
-            "bandwidth" : 125000
+        "chan_FSK": {
+            /* disabled */
+            "enable": false,
+            "radio": 0,
+            "if": 300000,
+            "bandwidth": 250000,
+            "datarate": 100000
         }
     },
     "gateway_conf": {
         "gateway_ID": "AA555A0000000000",
         /* change with default server address/ports */
+        "collector_address": "localhost",
         "server_address": "localhost",
         "serv_port_up": 1680,
         "serv_port_down": 1680,
@@ -118,6 +116,13 @@
         /* forward only valid packets */
         "forward_crc_valid": true,
         "forward_crc_error": false,
-        "forward_crc_disabled": false
+        "forward_crc_disabled": false,
+        /* Beaconing parameters */
+        "beacon_period": 0,
+        "beacon_freq_hz": 869525000,
+        "beacon_datarate": 9,
+        "beacon_bw_hz": 125000,
+        "beacon_power": 14,
+        "beacon_infodesc": 0
     }
 }
