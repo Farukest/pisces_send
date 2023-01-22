@@ -1351,9 +1351,9 @@ int main(int argc, char ** argv)
     hints.ai_socktype = SOCK_DGRAM;
 
     /* look for server address w/ upstream port */
-    i = getaddrinfo(collector_addr, serv_port_up, &hints, &result);
+    i = getaddrinfo(serv_addr, serv_port_up, &hints, &result);
     if (i != 0) {
-        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", collector_addr, serv_port_up, gai_strerror(i));
+        MSG("ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", serv_addr, serv_port_up, gai_strerror(i));
         exit(EXIT_FAILURE);
     }
 
@@ -1364,7 +1364,7 @@ int main(int argc, char ** argv)
         else break; /* success, get out of loop */
     }
     if (q == NULL) {
-        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", collector_addr, serv_port_up);
+        MSG("ERROR: [up] failed to open socket to any of server %s addresses (port %s)\n", serv_addr, serv_port_up);
         i = 1;
         for (q=result; q!=NULL; q=q->ai_next) {
             getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
@@ -1716,6 +1716,7 @@ int main(int argc, char ** argv)
     if (exit_sig) {
         /* shut down network sockets */
         shutdown(sock_up, SHUT_RDWR);
+        shutdown(sock_up_middle, SHUT_RDWR);
         shutdown(sock_down, SHUT_RDWR);
         /* stop the hardware */
         i = lgw_stop();
